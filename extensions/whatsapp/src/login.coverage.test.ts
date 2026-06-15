@@ -8,11 +8,6 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { loginWeb } from "./login.js";
 import { renderQrTerminal } from "./qr-terminal.js";
 import { createWaSocket, formatError, waitForWaConnection } from "./session.js";
-import {
-  clearWebAuthLoggedOut,
-  isWebAuthLoggedOut,
-  markWebAuthLoggedOut,
-} from "./web-auth-terminal-state.js";
 
 const rmMock = vi.spyOn(fs, "rm");
 const testState = vi.hoisted(() => ({
@@ -21,10 +16,6 @@ const testState = vi.hoisted(() => ({
 
 function resolveTestAuthDir() {
   return testState.authDir;
-}
-
-function defaultAuthState() {
-  return { accountId: "default", authDir: resolveTestAuthDir() };
 }
 
 vi.mock("openclaw/plugin-sdk/runtime-config-snapshot", async () => {
@@ -121,7 +112,6 @@ describe("loginWeb coverage", () => {
     waitForWaConnectionMock.mockReset().mockResolvedValue(undefined);
     formatErrorMock.mockReset().mockImplementation((err: unknown) => `formatted:${String(err)}`);
     rmMock.mockClear();
-    clearWebAuthLoggedOut(defaultAuthState());
   });
   afterEach(() => {
     vi.runOnlyPendingTimers();
@@ -179,7 +169,6 @@ describe("loginWeb coverage", () => {
   });
 
   it("clears stale creds and continues login when logged out", async () => {
-    markWebAuthLoggedOut(defaultAuthState());
     waitForWaConnectionMock
       .mockRejectedValueOnce({
         output: { statusCode: 401 },
@@ -194,7 +183,6 @@ describe("loginWeb coverage", () => {
     expect(runtimeMessageCalls(runtime.log)).toContain(
       "✅ Linked after restart; web session ready.",
     );
-    expect(isWebAuthLoggedOut(defaultAuthState())).toBe(false);
     expect(rmMock).toHaveBeenCalledWith(path.resolve(testState.authDir), {
       recursive: true,
       force: true,

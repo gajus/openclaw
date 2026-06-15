@@ -37,7 +37,6 @@ import {
 } from "../reconnect.js";
 import { formatError, getWebAuthAgeMs, readWebSelfId } from "../session.js";
 import { resolveWhatsAppSocketTiming } from "../socket-timing.js";
-import { clearWebAuthLoggedOut, markWebAuthLoggedOut } from "../web-auth-terminal-state.js";
 import { getRuntimeConfig, getRuntimeConfigSourceSnapshot } from "./config.runtime.js";
 import { whatsappHeartbeatLog, whatsappLog } from "./loggers.js";
 import { buildMentionConfig } from "./mentions.js";
@@ -394,10 +393,6 @@ export async function monitorWebChannel(
               "web reconnect: setup status error; max attempts reached",
             );
             if (setupDecision.healthState === "logged-out") {
-              markWebAuthLoggedOut({
-                accountId: account.accountId,
-                authDir: account.authDir,
-              });
               runtime.error(
                 `WhatsApp session logged out during setup. Run \`${formatCliCommand("openclaw channels login --channel whatsapp")}\` to relink.`,
               );
@@ -477,10 +472,6 @@ export async function monitorWebChannel(
       }
 
       statusController.noteConnected();
-      clearWebAuthLoggedOut({
-        accountId: account.accountId,
-        authDir: account.authDir,
-      });
       const approvalContextLease = registerChannelRuntimeContext({
         channelRuntime: tuning.channelRuntime,
         channelId: "whatsapp",
@@ -625,10 +616,6 @@ export async function monitorWebChannel(
         });
 
         if (decision.healthState === "logged-out") {
-          markWebAuthLoggedOut({
-            accountId: account.accountId,
-            authDir: account.authDir,
-          });
           runtime.error(
             `WhatsApp session logged out. Run \`${formatCliCommand("openclaw channels login --channel whatsapp")}\` to relink.`,
           );

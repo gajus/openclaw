@@ -22,7 +22,6 @@ import {
   WHATSAPP_AUTH_UNSTABLE_CODE,
 } from "./session.js";
 import { resolveWhatsAppSocketTiming, type WhatsAppSocketTimingOptions } from "./socket-timing.js";
-import { clearWebAuthLoggedOut, isWebAuthLoggedOut } from "./web-auth-terminal-state.js";
 
 type WaSocket = Awaited<ReturnType<typeof createWaSocket>>;
 export type StartWebLoginWithQrResult = {
@@ -227,10 +226,6 @@ function attachLoginWaiter(accountId: string, login: ActiveLogin) {
         return;
       }
       if (result.outcome === "connected") {
-        clearWebAuthLoggedOut({
-          accountId,
-          authDir: login.authDir,
-        });
         current.sock = result.sock;
         current.connected = true;
         return;
@@ -335,27 +330,14 @@ export async function startWebLoginWithQr(
       message: "WhatsApp auth state is still stabilizing. Retry login in a moment.",
     };
   }
-  const shouldRelinkLoggedOutAuth =
-    authState.exists &&
-    !opts.force &&
-    isWebAuthLoggedOut({
-      accountId: account.accountId,
-      authDir: account.authDir,
-    });
-  const shouldClearExistingAuth = authState.exists && (opts.force || shouldRelinkLoggedOutAuth);
-  if (
-    authState.exists &&
-    !opts.force &&
-    !shouldRelinkLoggedOutAuth &&
-    getActiveWebListener(account.accountId)
-  ) {
+  if (authState.exists && !opts.force && getActiveWebListener(account.accountId)) {
     const selfId = readWebSelfId(account.authDir);
     const who = selfId.e164 ?? selfId.jid ?? "unknown";
     return {
       message: `WhatsApp is already linked (${who}). Say “relink” if you want a fresh QR.`,
     };
   }
-  if (shouldClearExistingAuth) {
+  if (authState.exists && opts.force) {
     try {
       const cleared = await logoutWeb({
         authDir: account.authDir,
@@ -368,20 +350,11 @@ export async function startWebLoginWithQr(
             "WhatsApp login failed: existing auth could not be cleared. Remove or fix the configured WhatsApp auth directory, then retry login.",
         };
       }
-      clearWebAuthLoggedOut({
-        accountId: account.accountId,
-        authDir: account.authDir,
-      });
     } catch (err) {
       return {
         message: `WhatsApp login failed: ${formatError(err)}`,
       };
     }
-  } else if (opts.force) {
-    clearWebAuthLoggedOut({
-      accountId: account.accountId,
-      authDir: account.authDir,
-    });
   }
 
   const existing = activeLogins.get(account.accountId);

@@ -32,11 +32,6 @@ import {
 } from "./inbound/test-message.test-helper.js";
 import type { WebInboundMessageInput } from "./inbound/types.js";
 import { waitForWaConnection } from "./session.js";
-import {
-  clearWebAuthLoggedOut,
-  isWebAuthLoggedOut,
-  markWebAuthLoggedOut,
-} from "./web-auth-terminal-state.js";
 
 type DrainSelectionEntry = {
   channel: string;
@@ -422,27 +417,22 @@ describe("web auto-reply connection", () => {
       isLoggedOut: false,
       healthState: "conflict",
       error: "Unknown Stream Errored (conflict)",
-      startsWithLoggedOutMarker: true,
     },
     {
       status: 401,
       isLoggedOut: true,
       healthState: "logged-out",
       error: "Stream Errored (logged out)",
-      startsWithLoggedOutMarker: false,
     },
   ] as const)(
     "stops active listener and preserves auth after terminal status $status",
-    async ({ status, isLoggedOut, healthState, error, startsWithLoggedOutMarker }) => {
+    async ({ status, isLoggedOut, healthState, error }) => {
       const accountId = `terminal-${status}`;
       const authDir = path.join(resolveOAuthDir(), "whatsapp", accountId);
       const credsPath = resolveWebCredsPath(authDir);
       const credsJson = JSON.stringify({ me: { id: "123@s.whatsapp.net" } });
       await fs.mkdir(authDir, { recursive: true });
       await fs.writeFile(credsPath, credsJson);
-      if (startsWithLoggedOutMarker) {
-        markWebAuthLoggedOut({ accountId, authDir });
-      }
       setLoadConfigMock({
         channels: {
           whatsapp: {
@@ -482,31 +472,21 @@ describe("web auto-reply connection", () => {
         },
         { timeout: 250, interval: 2 },
       );
-      if (startsWithLoggedOutMarker) {
-        expect(isWebAuthLoggedOut({ accountId, authDir })).toBe(false);
-      }
 
-      try {
-        scripted.resolveClose(0, { status, isLoggedOut, error });
-        await run;
+      scripted.resolveClose(0, { status, isLoggedOut, error });
+      await run;
 
-        expect(scripted.getListenerCount()).toBe(1);
-        expect(sleep).not.toHaveBeenCalled();
-        expect(getActiveWebListener(accountId)).toBeNull();
-        await expect(fs.readFile(credsPath, "utf8")).resolves.toBe(credsJson);
-        expect(isWebAuthLoggedOut({ accountId, authDir })).toBe(healthState === "logged-out");
-        expect(
-          statuses.filter(
-            (entry) => entry.connected === false && entry.healthState === healthState,
-          ),
-        ).not.toEqual([]);
-        const finalStatus = statuses.at(-1);
-        expect(finalStatus?.running).toBe(false);
-        expect(finalStatus?.connected).toBe(false);
-        expect(finalStatus?.healthState).toBe(healthState);
-      } finally {
-        clearWebAuthLoggedOut({ accountId, authDir });
-      }
+      expect(scripted.getListenerCount()).toBe(1);
+      expect(sleep).not.toHaveBeenCalled();
+      expect(getActiveWebListener(accountId)).toBeNull();
+      await expect(fs.readFile(credsPath, "utf8")).resolves.toBe(credsJson);
+      expect(
+        statuses.filter((entry) => entry.connected === false && entry.healthState === healthState),
+      ).not.toEqual([]);
+      const finalStatus = statuses.at(-1);
+      expect(finalStatus?.running).toBe(false);
+      expect(finalStatus?.connected).toBe(false);
+      expect(finalStatus?.healthState).toBe(healthState);
     },
   );
 

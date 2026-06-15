@@ -10,7 +10,6 @@ import { closeWaSocketSoon, waitForWhatsAppLoginResult } from "./connection-cont
 import { renderQrTerminal } from "./qr-terminal.js";
 import { createWaSocket, waitForWaConnection } from "./session.js";
 import { resolveWhatsAppSocketTiming } from "./socket-timing.js";
-import { clearWebAuthLoggedOut } from "./web-auth-terminal-state.js";
 
 export async function loginWeb(
   verbose: boolean,
@@ -53,10 +52,6 @@ export async function loginWeb(
       },
     });
     if (result.outcome === "connected") {
-      clearWebAuthLoggedOut({
-        accountId: account.accountId,
-        authDir: account.authDir,
-      });
       runtime.log(
         success(
           result.restarted

@@ -46,7 +46,6 @@ import {
 } from "./shared.js";
 import { detectWhatsAppLegacyStateMigrations } from "./state-migrations.js";
 import { collectWhatsAppStatusIssues } from "./status-issues.js";
-import { clearWebAuthLoggedOut } from "./web-auth-terminal-state.js";
 
 const loadWhatsAppDirectoryConfig = createLazyRuntimeModule(() => import("./directory-config.js"));
 const loadWhatsAppChannelReactAction = createLazyRuntimeModule(
@@ -364,12 +363,6 @@ export const whatsappPlugin: ChannelPlugin<ResolvedWhatsAppAccount> =
             isLegacyAuthDir: account.isLegacyAuthDir,
             runtime,
           });
-          if (cleared) {
-            clearWebAuthLoggedOut({
-              accountId: account.accountId,
-              authDir: account.authDir,
-            });
-          }
           return { cleared, loggedOut: cleared };
         },
       },
