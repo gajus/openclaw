@@ -17,6 +17,21 @@ const workAuthState = {
   authDir: "/tmp/openclaw-whatsapp-work",
 };
 
+function logoutWorkAccount() {
+  return whatsappPlugin.gateway?.logoutAccount?.({
+    cfg: { channels: { whatsapp: {} } },
+    accountId: workAuthState.accountId,
+    account: {
+      accountId: workAuthState.accountId,
+      authDir: workAuthState.authDir,
+      enabled: true,
+      isLegacyAuthDir: false,
+      sendReadReceipts: false,
+    },
+    runtime: { log: vi.fn(), error: vi.fn(), exit: vi.fn() } as RuntimeEnv,
+  });
+}
+
 vi.mock("./channel.runtime.js", () => ({
   logoutWeb: hoisted.logoutWeb,
 }));
@@ -34,18 +49,7 @@ describe("WhatsApp channel logout", () => {
   it("clears terminal logged-out state after explicit logout", async () => {
     markWebAuthLoggedOut(workAuthState);
 
-    const result = await whatsappPlugin.gateway?.logoutAccount?.({
-      cfg: { channels: { whatsapp: {} } },
-      accountId: "work",
-      account: {
-        accountId: "work",
-        authDir: workAuthState.authDir,
-        enabled: true,
-        isLegacyAuthDir: false,
-        sendReadReceipts: false,
-      },
-      runtime: { log: vi.fn(), error: vi.fn(), exit: vi.fn() } as RuntimeEnv,
-    });
+    const result = await logoutWorkAccount();
 
     expect(result).toEqual({ cleared: true, loggedOut: true });
     expect(hoisted.logoutWeb).toHaveBeenCalledWith({
@@ -60,18 +64,7 @@ describe("WhatsApp channel logout", () => {
     hoisted.logoutWeb.mockResolvedValueOnce(false);
     markWebAuthLoggedOut(workAuthState);
 
-    const result = await whatsappPlugin.gateway?.logoutAccount?.({
-      cfg: { channels: { whatsapp: {} } },
-      accountId: "work",
-      account: {
-        accountId: "work",
-        authDir: workAuthState.authDir,
-        enabled: true,
-        isLegacyAuthDir: false,
-        sendReadReceipts: false,
-      },
-      runtime: { log: vi.fn(), error: vi.fn(), exit: vi.fn() } as RuntimeEnv,
-    });
+    const result = await logoutWorkAccount();
 
     expect(result).toEqual({ cleared: false, loggedOut: false });
     expect(isWebAuthLoggedOut(workAuthState)).toBe(true);

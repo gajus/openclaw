@@ -422,22 +422,27 @@ describe("web auto-reply connection", () => {
       isLoggedOut: false,
       healthState: "conflict",
       error: "Unknown Stream Errored (conflict)",
+      startsWithLoggedOutMarker: true,
     },
     {
       status: 401,
       isLoggedOut: true,
       healthState: "logged-out",
       error: "Stream Errored (logged out)",
+      startsWithLoggedOutMarker: false,
     },
   ] as const)(
     "stops active listener and preserves auth after terminal status $status",
-    async ({ status, isLoggedOut, healthState, error }) => {
+    async ({ status, isLoggedOut, healthState, error, startsWithLoggedOutMarker }) => {
       const accountId = `terminal-${status}`;
       const authDir = path.join(resolveOAuthDir(), "whatsapp", accountId);
       const credsPath = resolveWebCredsPath(authDir);
       const credsJson = JSON.stringify({ me: { id: "123@s.whatsapp.net" } });
       await fs.mkdir(authDir, { recursive: true });
       await fs.writeFile(credsPath, credsJson);
+      if (startsWithLoggedOutMarker) {
+        markWebAuthLoggedOut({ accountId, authDir });
+      }
       setLoadConfigMock({
         channels: {
           whatsapp: {
@@ -477,6 +482,9 @@ describe("web auto-reply connection", () => {
         },
         { timeout: 250, interval: 2 },
       );
+      if (startsWithLoggedOutMarker) {
+        expect(isWebAuthLoggedOut({ accountId, authDir })).toBe(false);
+      }
 
       try {
         scripted.resolveClose(0, { status, isLoggedOut, error });
@@ -501,52 +509,6 @@ describe("web auto-reply connection", () => {
       }
     },
   );
-
-  it("clears terminal logged-out state after a healthy monitor connection", async () => {
-    const accountId = "terminal-recovered";
-    const authDir = path.join(resolveOAuthDir(), "whatsapp", accountId);
-    markWebAuthLoggedOut({ accountId, authDir });
-    setLoadConfigMock({
-      channels: {
-        whatsapp: {
-          allowFrom: ["*"],
-          accounts: {
-            [accountId]: {
-              authDir,
-            },
-          },
-        },
-      },
-      messages: {
-        messagePrefix: undefined,
-        responsePrefix: undefined,
-      },
-    });
-
-    const scripted = createScriptedWebListenerFactory();
-    const { controller, run } = startWebAutoReplyMonitor({
-      monitorWebChannelFn: monitorWebChannel as never,
-      listenerFactory: scripted.listenerFactory,
-      accountId,
-    });
-
-    try {
-      await vi.waitFor(
-        () => {
-          expect(scripted.getListenerCount()).toBe(1);
-        },
-        { timeout: 250, interval: 2 },
-      );
-
-      expect(isWebAuthLoggedOut({ accountId, authDir })).toBe(false);
-    } finally {
-      controller.abort();
-      scripted.resolveClose(0, { status: 499, isLoggedOut: false });
-      await run;
-      clearWebAuthLoggedOut({ accountId, authDir });
-      resetLoadConfigMock();
-    }
-  });
 
   it("retries inbox attach when auth state is still stabilizing", async () => {
     const sleep = vi.fn(async () => {});
